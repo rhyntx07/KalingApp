@@ -12,13 +12,13 @@ interface ArticleModalProps {
   onSave: (article: Article) => void
 }
 
-const categories = ['Health Benefits', 'Techniques', 'Common Issues', 'Nutrition', 'Safety']
+const categories = ['Latching Techniques', 'Milk Storage & Safety', 'Maternal Nutrition', 'Newborn Health']
 
 export default function ArticleModal({ isOpen, article, onClose, onSave }: ArticleModalProps) {
   const [formData, setFormData] = useState<Partial<Article>>({
     title: '',
     content: '',
-    category: 'Health Benefits',
+    category: 'Newborn Health',
     author: '',
     status: 'draft',
   })
@@ -30,7 +30,7 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
       setFormData({
         title: '',
         content: '',
-        category: 'Health Benefits',
+        category: 'Newborn Health',
         author: '',
         status: 'draft',
       })
@@ -57,7 +57,7 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
       id: article?.id || '',
       title: formData.title,
       content: formData.content,
-      category: formData.category || 'Health Benefits',
+      category: formData.category || 'Newborn Health',
       author: formData.author,
       status: (formData.status as 'published' | 'draft') || 'draft',
       createdAt: article?.createdAt || new Date(),
@@ -114,7 +114,7 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
               <label className="block text-sm font-medium text-foreground mb-2">Category</label>
               <select
                 name="category"
-                value={formData.category || 'Health Benefits'}
+                value={formData.category || 'Newborn Health'}
                 onChange={handleChange}
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
               >
