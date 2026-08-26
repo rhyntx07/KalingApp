@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { Button } from '@/components/ui/button'
 
 export default function SettingsPage() {
   const { admin } = useAuth()
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [twoFactorAuth, setTwoFactorAuth] = useState(false)
 
   return (
     <div className="p-8 space-y-8">
@@ -53,10 +55,13 @@ export default function SettingsPage() {
 
         <div className="space-y-6">
           <div>
+            {/* TODO(backend): wire to settings endpoint when Karl's API exists. */}
+            {/* Local-only by design; does not persist across reload (mock prototype). */}
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                defaultChecked={true}
+                checked={emailNotifications}
+                onChange={(e) => setEmailNotifications(e.target.checked)}
                 className="w-4 h-4 rounded border-border bg-white accent-primary"
               />
               <div>
@@ -67,10 +72,13 @@ export default function SettingsPage() {
           </div>
 
           <div className="border-t border-border pt-6">
+            {/* TODO(backend): wire to settings endpoint when Karl's API exists. */}
+            {/* Local-only by design; does not persist across reload (mock prototype). */}
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                defaultChecked={false}
+                checked={twoFactorAuth}
+                onChange={(e) => setTwoFactorAuth(e.target.checked)}
                 className="w-4 h-4 rounded border-border bg-white accent-primary"
               />
               <div>
@@ -82,19 +90,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Danger Zone */}
-      <div className="bg-[#FFDAD9] border border-destructive/30 rounded-[18px] p-8 max-w-2xl">
-        <h2 className="text-2xl font-semibold text-destructive mb-4">Danger Zone</h2>
-
-        <p className="text-sm text-muted-foreground mb-6">
-          These actions cannot be undone. Please be careful.
-        </p>
-
-        <Button className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-white rounded-xl transition-all duration-200">
-          Reset System Data
-        </Button>
-      </div>
-
       {/* System Information */}
       <div className="bg-white rounded-[18px] border border-border p-8 max-w-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         <h2 className="text-2xl font-semibold text-foreground mb-6">System Information</h2>
@@ -102,15 +97,15 @@ export default function SettingsPage() {
         <div className="space-y-4 text-sm">
           <div className="flex justify-between py-2 border-b border-border/50">
             <span className="text-muted-foreground">System Version</span>
-            <span className="text-foreground font-medium">1.0.0</span>
+            <span className="text-foreground font-medium">0.1.0</span>
           </div>
           <div className="flex justify-between py-2 border-b border-border/50">
             <span className="text-muted-foreground">Last Backup</span>
-            <span className="text-foreground font-medium">{new Date().toLocaleDateString()}</span>
+            <span className="text-foreground font-medium">Not configured</span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-muted-foreground">Database Status</span>
-            <span className="text-primary font-medium">Connected</span>
+            <span className="text-muted-foreground font-medium">Not Connected</span>
           </div>
         </div>
       </div>
