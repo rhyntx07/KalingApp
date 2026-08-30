@@ -1,12 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 
 export default function SettingsPage() {
   const { admin } = useAuth()
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [twoFactorAuth, setTwoFactorAuth] = useState(false)
 
   return (
     <div className="p-8 space-y-8">
@@ -49,47 +46,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* System Preferences */}
-      <div className="bg-white rounded-[18px] border border-border p-8 max-w-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-        <h2 className="text-2xl font-semibold text-foreground mb-6">System Preferences</h2>
-
-        <div className="space-y-6">
-          <div>
-            {/* TODO(backend): wire to settings endpoint when Karl's API exists. */}
-            {/* Local-only by design; does not persist across reload (mock prototype). */}
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={emailNotifications}
-                onChange={(e) => setEmailNotifications(e.target.checked)}
-                className="w-4 h-4 rounded border-border bg-white accent-primary"
-              />
-              <div>
-                <p className="font-medium text-foreground">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Receive alerts about pending moderation items</p>
-              </div>
-            </label>
-          </div>
-
-          <div className="border-t border-border pt-6">
-            {/* TODO(backend): wire to settings endpoint when Karl's API exists. */}
-            {/* Local-only by design; does not persist across reload (mock prototype). */}
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={twoFactorAuth}
-                onChange={(e) => setTwoFactorAuth(e.target.checked)}
-                className="w-4 h-4 rounded border-border bg-white accent-primary"
-              />
-              <div>
-                <p className="font-medium text-foreground">Two-Factor Authentication</p>
-                <p className="text-sm text-muted-foreground">Add extra security to your account</p>
-              </div>
-            </label>
-          </div>
-        </div>
-      </div>
-
       {/* System Information */}
       <div className="bg-white rounded-[18px] border border-border p-8 max-w-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         <h2 className="text-2xl font-semibold text-foreground mb-6">System Information</h2>
@@ -99,13 +55,9 @@ export default function SettingsPage() {
             <span className="text-muted-foreground">System Version</span>
             <span className="text-foreground font-medium">0.1.0</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-border/50">
-            <span className="text-muted-foreground">Last Backup</span>
-            <span className="text-foreground font-medium">Not configured</span>
-          </div>
           <div className="flex justify-between py-2">
-            <span className="text-muted-foreground">Database Status</span>
-            <span className="text-muted-foreground font-medium">Not Connected</span>
+            <span className="text-muted-foreground">Backend</span>
+            <span className="text-foreground font-medium break-all">{process.env.NEXT_PUBLIC_API_URL}</span>
           </div>
         </div>
       </div>

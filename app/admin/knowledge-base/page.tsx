@@ -1,16 +1,38 @@
 'use client'
 
-import { useState } from 'react'
-import { mockArticles, Article } from '@/lib/mock-data'
-import { Plus, Edit2, Trash2, Eye } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { apiFetch } from '@/lib/api'
+import { Article } from '@/lib/types'
+import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import ArticleModal from '@/components/admin/article-modal'
+import ArticleModal, { ArticleFormValues } from '@/components/admin/article-modal'
 
 export default function KnowledgeBasePage() {
-  const [articles, setArticles] = useState<Article[]>(mockArticles)
+  const [articles, setArticles] = useState<Article[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+
+  const loadArticles = () => {
+    setIsLoading(true)
+    setLoadError(null)
+    apiFetch('/articles/admin/')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load articles (${res.status})`)
+        return res.json()
+      })
+      .then(setArticles)
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load articles'))
+      .finally(() => setIsLoading(false))
+  }
+
+  useEffect(() => {
+    loadArticles()
+  }, [])
 
   const filteredArticles = articles.filter(
     (article) =>
@@ -20,40 +42,53 @@ export default function KnowledgeBasePage() {
 
   const handleAddArticle = () => {
     setEditingArticle(null)
+    setActionError(null)
     setIsModalOpen(true)
   }
 
   const handleEditArticle = (article: Article) => {
     setEditingArticle(article)
+    setActionError(null)
     setIsModalOpen(true)
   }
 
-  const handleDeleteArticle = (id: string) => {
-    if (confirm('Are you sure you want to delete this article?')) {
-      setArticles(articles.filter((a) => a.id !== id))
+  const handleDeleteArticle = async (article: Article) => {
+    if (!confirm(`Delete "${article.title}"? This cannot be undone.`)) return
+    setActionError(null)
+    try {
+      const res = await apiFetch(`/articles/admin/${article.id}/`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Could not delete this article')
+      setArticles((prev) => prev.filter((a) => a.id !== article.id))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not delete this article')
     }
   }
 
-  const handleSaveArticle = (article: Article) => {
-    if (editingArticle) {
-      setArticles(
-        articles.map((a) =>
-          a.id === editingArticle.id ? { ...article, updatedAt: new Date() } : a
-        )
+  const handleSaveArticle = async (values: ArticleFormValues) => {
+    setIsSaving(true)
+    setActionError(null)
+    try {
+      const res = editingArticle
+        ? await apiFetch(`/articles/admin/${editingArticle.id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(values),
+          })
+        : await apiFetch('/articles/admin/', {
+            method: 'POST',
+            body: JSON.stringify(values),
+          })
+      if (!res.ok) throw new Error('Could not save this article')
+      const saved: Article = await res.json()
+      setArticles((prev) =>
+        editingArticle ? prev.map((a) => (a.id === saved.id ? saved : a)) : [...prev, saved]
       )
-    } else {
-      setArticles([
-        ...articles,
-        {
-          ...article,
-          id: Math.random().toString(36).substr(2, 9),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ])
+      setIsModalOpen(false)
+      setEditingArticle(null)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not save this article')
+    } finally {
+      setIsSaving(false)
     }
-    setIsModalOpen(false)
-    setEditingArticle(null)
   }
 
   return (
@@ -75,6 +110,12 @@ export default function KnowledgeBasePage() {
         </Button>
       </div>
 
+      {actionError && (
+        <div className="bg-white rounded-[18px] border border-destructive/30 p-4 text-destructive text-sm">
+          {actionError}
+        </div>
+      )}
+
       {/* Search */}
       <div className="bg-white rounded-[18px] border border-border p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         <input
@@ -88,71 +129,68 @@ export default function KnowledgeBasePage() {
 
       {/* Articles Table */}
       <div className="bg-white rounded-[18px] border border-border overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-primary">
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Title</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Category</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Author</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Updated</th>
-                <th className="px-6 py-4 text-right text-sm font-semibold text-white">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredArticles.map((article) => (
-                <tr key={article.id} className="hover:bg-light-pink/50 transition">
-                  <td className="px-6 py-4 text-sm text-foreground font-medium">{article.title}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">{article.category}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">{article.author}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        article.status === 'published'
-                          ? 'bg-light-pink text-primary'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {article.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">
-                    {article.updatedAt.toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        className="p-2 hover:bg-light-pink rounded-xl transition text-muted-foreground hover:text-primary"
-                        title="View"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEditArticle(article)}
-                        className="p-2 hover:bg-light-pink rounded-xl transition text-primary"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteArticle(article.id)}
-                        className="p-2 hover:bg-destructive/10 rounded-xl transition text-destructive"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+        {isLoading ? (
+          <div className="px-6 py-12 text-center text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading articles...
+          </div>
+        ) : loadError ? (
+          <div className="px-6 py-12 text-center text-destructive">
+            {loadError}
+            <div className="pt-3">
+              <Button onClick={loadArticles} className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-2">
+                Retry
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-primary">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Title</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Category</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Author</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Read Time</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Date</th>
+                  <th className="px-6 py-4 text-right text-sm font-semibold text-white">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredArticles.map((article) => (
+                  <tr key={article.id} className="hover:bg-light-pink/50 transition">
+                    <td className="px-6 py-4 text-sm text-foreground font-medium">{article.title}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{article.category}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{article.author}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{article.read_time}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{article.date}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleEditArticle(article)}
+                          className="p-2 hover:bg-light-pink rounded-xl transition text-primary"
+                          title="Edit"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteArticle(article)}
+                          className="p-2 hover:bg-destructive/10 rounded-xl transition text-destructive"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-        {filteredArticles.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <p className="text-muted-foreground">No articles found matching your search.</p>
+            {filteredArticles.length === 0 && (
+              <div className="px-6 py-12 text-center">
+                <p className="text-muted-foreground">No articles found matching your search.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -161,6 +199,7 @@ export default function KnowledgeBasePage() {
       <ArticleModal
         isOpen={isModalOpen}
         article={editingArticle}
+        isSaving={isSaving}
         onClose={() => {
           setIsModalOpen(false)
           setEditingArticle(null)

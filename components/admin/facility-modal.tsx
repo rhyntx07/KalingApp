@@ -1,58 +1,46 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Facility, SupplyLevel } from '@/lib/mock-data'
+import { Facility } from '@/lib/types'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
+export type FacilityFormValues = Omit<Facility, 'id' | 'booked_count'>
 
 interface FacilityModalProps {
   isOpen: boolean
   facility: Facility | null
   onClose: () => void
-  onSave: (facility: Facility) => void
+  onSave: (values: FacilityFormValues) => void
+  isSaving: boolean
 }
 
-const availableServices = [
-  'Milk Collection',
-  'Donor Screening',
-  'Milk Processing',
-  'Distribution',
-  'Testing',
-  'Storage',
-  'Education',
-  'Support Groups',
-  'Evaluation',
-  'Processing & Pasteurization',
-  'Microbiological Quality Control Testing',
-  'Safe Storage & Distribution',
-]
+const emptyForm: FacilityFormValues = {
+  name: '',
+  type: 'Hospital Depot',
+  contact: '',
+  address: '',
+  operating_hours: '8:00 AM - 5:00 PM (Mon-Fri)',
+  donor_requirements: '',
+  recipient_requirements: '',
+  unavailable_donor_dates: [],
+  unavailable_recipient_dates: [],
+  is_operational: true,
+  capacity: 10,
+  stock_level_ml: 0,
+  latitude: 0,
+  longitude: 0,
+}
 
-export default function FacilityModal({ isOpen, facility, onClose, onSave }: FacilityModalProps) {
-  const [formData, setFormData] = useState<Partial<Facility>>({
-    name: '',
-    location: '',
-    phone: '',
-    email: '',
-    services: [],
-    supplyLevel: 'adequate',
-    operatingHours: '',
-    accreditation: '',
-  })
+export default function FacilityModal({ isOpen, facility, onClose, onSave, isSaving }: FacilityModalProps) {
+  const [formData, setFormData] = useState<FacilityFormValues>(emptyForm)
 
   useEffect(() => {
     if (facility) {
-      setFormData(facility)
+      const { id, booked_count, ...rest } = facility
+      setFormData(rest)
     } else {
-      setFormData({
-        name: '',
-        location: '',
-        phone: '',
-        email: '',
-        services: [],
-        supplyLevel: 'adequate',
-        operatingHours: '',
-        accreditation: '',
-      })
+      setFormData(emptyForm)
     }
   }, [facility, isOpen])
 
@@ -61,51 +49,23 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave }: Fac
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleServiceToggle = (service: string) => {
-    setFormData((prev) => {
-      const services = prev.services || []
-      return {
-        ...prev,
-        services: services.includes(service)
-          ? services.filter((s) => s !== service)
-          : [...services, service],
-      }
-    })
+    const { name, value, type } = e.target
+    if (type === 'checkbox') {
+      setFormData((prev) => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }))
+    } else if (type === 'number') {
+      setFormData((prev) => ({ ...prev, [name]: value === '' ? 0 : Number(value) }))
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (
-      !formData.name ||
-      !formData.location ||
-      !formData.phone ||
-      !formData.email ||
-      !formData.services ||
-      formData.services.length === 0
-    ) {
-      alert('Please fill in all required fields and select at least one service')
+    if (!formData.name || !formData.address || !formData.contact) {
+      alert('Please fill in name, address, and contact')
       return
     }
-
-    const newFacility: Facility = {
-      id: facility?.id || '',
-      name: formData.name,
-      location: formData.location,
-      phone: formData.phone,
-      email: formData.email,
-      services: formData.services,
-      supplyLevel: (formData.supplyLevel as SupplyLevel) || 'adequate',
-      operatingHours: formData.operatingHours || '',
-      accreditation: formData.accreditation || '',
-      createdAt: facility?.createdAt || new Date(),
-      updatedAt: new Date(),
-    }
-
-    onSave(newFacility)
+    onSave(formData)
   }
 
   return (
@@ -132,7 +92,7 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave }: Fac
               <input
                 type="text"
                 name="name"
-                value={formData.name || ''}
+                value={formData.name}
                 onChange={handleChange}
                 placeholder="Facility name"
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
@@ -140,96 +100,135 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave }: Fac
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Location *</label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location || ''}
-                onChange={handleChange}
-                placeholder="City, Region"
-                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Phone *</label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone || ''}
-                onChange={handleChange}
-                placeholder="+63-XX-XXXX-XXXX"
-                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email || ''}
-                onChange={handleChange}
-                placeholder="contact@facility.com"
-                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Supply Level</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Type</label>
               <select
-                name="supplyLevel"
-                value={formData.supplyLevel || 'adequate'}
+                name="type"
+                value={formData.type}
                 onChange={handleChange}
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
               >
-                <option value="low">Low</option>
-                <option value="adequate">Adequate</option>
-                <option value="high">High</option>
+                <option value="Accredited Human Milk Bank">Accredited Human Milk Bank</option>
+                <option value="Hospital Depot">Hospital Depot</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Accreditation</label>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-2">Address *</label>
               <input
                 type="text"
-                name="accreditation"
-                value={formData.accreditation || ''}
+                name="address"
+                value={formData.address}
                 onChange={handleChange}
-                placeholder="DOH Licensed"
+                placeholder="Street, City, Region"
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Contact *</label>
+              <input
+                type="text"
+                name="contact"
+                value={formData.contact}
+                onChange={handleChange}
+                placeholder="Phone or email"
+                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Operating Hours</label>
+              <input
+                type="text"
+                name="operating_hours"
+                value={formData.operating_hours}
+                onChange={handleChange}
+                placeholder="Mon-Fri: 8AM-5PM"
+                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Booking Capacity</label>
+              <input
+                type="number"
+                name="capacity"
+                min={0}
+                value={formData.capacity}
+                onChange={handleChange}
+                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Milk Stock (mL)</label>
+              <input
+                type="number"
+                name="stock_level_ml"
+                min={0}
+                value={formData.stock_level_ml}
+                onChange={handleChange}
+                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Latitude</label>
+              <input
+                type="number"
+                name="latitude"
+                step="any"
+                value={formData.latitude}
+                onChange={handleChange}
+                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Longitude</label>
+              <input
+                type="number"
+                name="longitude"
+                step="any"
+                value={formData.longitude}
+                onChange={handleChange}
+                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Operating Hours</label>
-            <input
-              type="text"
-              name="operatingHours"
-              value={formData.operatingHours || ''}
+            <label className="block text-sm font-medium text-foreground mb-2">Donor Requirements</label>
+            <textarea
+              name="donor_requirements"
+              value={formData.donor_requirements}
               onChange={handleChange}
-              placeholder="Mon-Fri: 8AM-6PM, Sat: 9AM-3PM"
+              rows={2}
               className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-3">Services Provided *</label>
-            <div className="grid grid-cols-2 gap-3">
-              {availableServices.map((service) => (
-                <label key={service} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.services?.includes(service) || false}
-                    onChange={() => handleServiceToggle(service)}
-                    className="w-4 h-4 rounded border-border bg-white accent-primary"
-                  />
-                  <span className="text-sm text-foreground">{service}</span>
-                </label>
-              ))}
-            </div>
+            <label className="block text-sm font-medium text-foreground mb-2">Recipient Requirements</label>
+            <textarea
+              name="recipient_requirements"
+              value={formData.recipient_requirements}
+              onChange={handleChange}
+              rows={2}
+              className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+            />
           </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              name="is_operational"
+              checked={formData.is_operational}
+              onChange={handleChange}
+              className="w-4 h-4 rounded border-border bg-white accent-primary"
+            />
+            <span className="text-sm text-foreground">Operational</span>
+          </label>
 
           {/* Modal Footer */}
           <div className="flex items-center justify-end gap-3 pt-6 border-t border-border">
@@ -242,9 +241,10 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave }: Fac
             </Button>
             <Button
               type="submit"
-              className="px-6 py-2.5 bg-primary hover:bg-[#E05F86] text-white rounded-xl transition-all duration-200"
+              disabled={isSaving}
+              className="px-6 py-2.5 bg-primary hover:bg-[#E05F86] text-white rounded-xl transition-all duration-200 disabled:opacity-60"
             >
-              {facility ? 'Update Facility' : 'Create Facility'}
+              {isSaving ? 'Saving...' : facility ? 'Update Facility' : 'Create Facility'}
             </Button>
           </div>
         </form>

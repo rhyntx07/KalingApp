@@ -1,39 +1,41 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Article } from '@/lib/mock-data'
+import { Article, ARTICLE_CATEGORIES } from '@/lib/types'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
+export type ArticleFormValues = Omit<Article, 'id'>
 
 interface ArticleModalProps {
   isOpen: boolean
   article: Article | null
   onClose: () => void
-  onSave: (article: Article) => void
+  onSave: (values: ArticleFormValues) => void
+  isSaving: boolean
 }
 
-const categories = ['Latching Techniques', 'Milk Storage & Safety', 'Maternal Nutrition', 'Newborn Health']
+const emptyForm: ArticleFormValues = {
+  title: '',
+  content: '',
+  teaser: '',
+  category: ARTICLE_CATEGORIES[3],
+  author: '',
+  read_time: '3 min read',
+  rating: '4.9 ★',
+  evidence_label: 'Organization-Verified & Peer-Reviewed',
+  date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+}
 
-export default function ArticleModal({ isOpen, article, onClose, onSave }: ArticleModalProps) {
-  const [formData, setFormData] = useState<Partial<Article>>({
-    title: '',
-    content: '',
-    category: 'Newborn Health',
-    author: '',
-    status: 'draft',
-  })
+export default function ArticleModal({ isOpen, article, onClose, onSave, isSaving }: ArticleModalProps) {
+  const [formData, setFormData] = useState<ArticleFormValues>(emptyForm)
 
   useEffect(() => {
     if (article) {
-      setFormData(article)
+      const { id, ...rest } = article
+      setFormData(rest)
     } else {
-      setFormData({
-        title: '',
-        content: '',
-        category: 'Newborn Health',
-        author: '',
-        status: 'draft',
-      })
+      setFormData(emptyForm)
     }
   }, [article, isOpen])
 
@@ -48,23 +50,11 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.title || !formData.content || !formData.author) {
-      alert('Please fill in all required fields')
+    if (!formData.title || !formData.content || !formData.author || !formData.teaser) {
+      alert('Please fill in title, teaser, content, and author')
       return
     }
-
-    const newArticle: Article = {
-      id: article?.id || '',
-      title: formData.title,
-      content: formData.content,
-      category: formData.category || 'Newborn Health',
-      author: formData.author,
-      status: (formData.status as 'published' | 'draft') || 'draft',
-      createdAt: article?.createdAt || new Date(),
-      updatedAt: new Date(),
-    }
-
-    onSave(newArticle)
+    onSave(formData)
   }
 
   return (
@@ -91,7 +81,7 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
               <input
                 type="text"
                 name="title"
-                value={formData.title || ''}
+                value={formData.title}
                 onChange={handleChange}
                 placeholder="Article title"
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
@@ -103,7 +93,7 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
               <input
                 type="text"
                 name="author"
-                value={formData.author || ''}
+                value={formData.author}
                 onChange={handleChange}
                 placeholder="Author name"
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
@@ -114,11 +104,11 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
               <label className="block text-sm font-medium text-foreground mb-2">Category</label>
               <select
                 name="category"
-                value={formData.category || 'Newborn Health'}
+                value={formData.category}
                 onChange={handleChange}
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
               >
-                {categories.map((cat) => (
+                {ARTICLE_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
@@ -127,24 +117,35 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-              <select
-                name="status"
-                value={formData.status || 'draft'}
+              <label className="block text-sm font-medium text-foreground mb-2">Read Time</label>
+              <input
+                type="text"
+                name="read_time"
+                value={formData.read_time}
                 onChange={handleChange}
-                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
-              >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-              </select>
+                placeholder="3 min read"
+                className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Teaser *</label>
+            <textarea
+              name="teaser"
+              value={formData.teaser}
+              onChange={handleChange}
+              placeholder="Short summary shown on the article list..."
+              rows={2}
+              className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Content *</label>
             <textarea
               name="content"
-              value={formData.content || ''}
+              value={formData.content}
               onChange={handleChange}
               placeholder="Article content..."
               rows={8}
@@ -163,9 +164,10 @@ export default function ArticleModal({ isOpen, article, onClose, onSave }: Artic
             </Button>
             <Button
               type="submit"
-              className="px-6 py-2.5 bg-primary hover:bg-[#E05F86] text-white rounded-xl transition-all duration-200"
+              disabled={isSaving}
+              className="px-6 py-2.5 bg-primary hover:bg-[#E05F86] text-white rounded-xl transition-all duration-200 disabled:opacity-60"
             >
-              {article ? 'Update Article' : 'Create Article'}
+              {isSaving ? 'Saving...' : article ? 'Update Article' : 'Create Article'}
             </Button>
           </div>
         </form>

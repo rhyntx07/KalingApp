@@ -1,65 +1,104 @@
 'use client'
 
-import { useState } from 'react'
-import { mockFacilities, Facility } from '@/lib/mock-data'
-import { Plus, Edit2, Trash2, Phone, MapPin } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { apiFetch } from '@/lib/api'
+import { Facility } from '@/lib/types'
+import { Plus, Edit2, Trash2, Phone, MapPin, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import FacilityModal from '@/components/admin/facility-modal'
+import FacilityModal, { FacilityFormValues } from '@/components/admin/facility-modal'
 
-const supplyLevelConfig = {
-  low: { label: 'Low', bg: 'bg-[#FFDAD9]', text: 'text-[#BA1A1A]' },
-  adequate: { label: 'Adequate', bg: 'bg-[#FDF6E2]', text: 'text-[#D4A437]' },
-  high: { label: 'High', bg: 'bg-green-100', text: 'text-green-700' },
-} as const
+function stockBadge(facility: Facility) {
+  // 300mL is the same low-stock cutoff the backend's Smart Allocation
+  // uses to exclude a facility from recipient matching (see
+  // milkbank.allocation.MINIMUM_STOCK_THRESHOLD_ML) -- reusing it here
+  // instead of inventing a separate display-only threshold.
+  if (!facility.is_operational) return { label: 'Not Operational', bg: 'bg-muted', text: 'text-muted-foreground' }
+  if (facility.stock_level_ml < 300) return { label: 'Low Stock', bg: 'bg-[#FFDAD9]', text: 'text-[#BA1A1A]' }
+  return { label: `${facility.stock_level_ml} mL`, bg: 'bg-green-100', text: 'text-green-700' }
+}
 
 export default function FacilitiesPage() {
-  const [facilities, setFacilities] = useState<Facility[]>(mockFacilities)
+  const [facilities, setFacilities] = useState<Facility[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingFacility, setEditingFacility] = useState<Facility | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+
+  const loadFacilities = () => {
+    setIsLoading(true)
+    setLoadError(null)
+    apiFetch('/milkbank/facilities/')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load facilities (${res.status})`)
+        return res.json()
+      })
+      .then(setFacilities)
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load facilities'))
+      .finally(() => setIsLoading(false))
+  }
+
+  useEffect(() => {
+    loadFacilities()
+  }, [])
 
   const filteredFacilities = facilities.filter(
     (facility) =>
       facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      facility.location.toLowerCase().includes(searchTerm.toLowerCase())
+      facility.address.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleAddFacility = () => {
     setEditingFacility(null)
+    setActionError(null)
     setIsModalOpen(true)
   }
 
   const handleEditFacility = (facility: Facility) => {
     setEditingFacility(facility)
+    setActionError(null)
     setIsModalOpen(true)
   }
 
-  const handleDeleteFacility = (id: string) => {
-    if (confirm('Are you sure you want to delete this facility?')) {
-      setFacilities(facilities.filter((f) => f.id !== id))
+  const handleDeleteFacility = async (facility: Facility) => {
+    if (!confirm(`Delete ${facility.name}? This cannot be undone.`)) return
+    setActionError(null)
+    try {
+      const res = await apiFetch(`/milkbank/facilities/${facility.id}/`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Could not delete this facility')
+      setFacilities((prev) => prev.filter((f) => f.id !== facility.id))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not delete this facility')
     }
   }
 
-  const handleSaveFacility = (facility: Facility) => {
-    if (editingFacility) {
-      setFacilities(
-        facilities.map((f) =>
-          f.id === editingFacility.id ? { ...facility, updatedAt: new Date() } : f
-        )
+  const handleSaveFacility = async (values: FacilityFormValues) => {
+    setIsSaving(true)
+    setActionError(null)
+    try {
+      const res = editingFacility
+        ? await apiFetch(`/milkbank/facilities/${editingFacility.id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(values),
+          })
+        : await apiFetch('/milkbank/facilities/', {
+            method: 'POST',
+            body: JSON.stringify(values),
+          })
+      if (!res.ok) throw new Error('Could not save this facility')
+      const saved: Facility = await res.json()
+      setFacilities((prev) =>
+        editingFacility ? prev.map((f) => (f.id === saved.id ? saved : f)) : [...prev, saved]
       )
-    } else {
-      setFacilities([
-        ...facilities,
-        {
-          ...facility,
-          id: Math.random().toString(36).substr(2, 9),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ])
+      setIsModalOpen(false)
+      setEditingFacility(null)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not save this facility')
+    } finally {
+      setIsSaving(false)
     }
-    setIsModalOpen(false)
-    setEditingFacility(null)
   }
 
   return (
@@ -81,96 +120,114 @@ export default function FacilitiesPage() {
         </Button>
       </div>
 
+      {actionError && (
+        <div className="bg-white rounded-[18px] border border-destructive/30 p-4 text-destructive text-sm">
+          {actionError}
+        </div>
+      )}
+
       {/* Search */}
       <div className="bg-white rounded-[18px] border border-border p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         <input
           type="text"
-          placeholder="Search facilities by name or location..."
+          placeholder="Search facilities by name or address..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
         />
       </div>
 
-      {/* Facilities Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredFacilities.map((facility) => {
-          const supply = supplyLevelConfig[facility.supplyLevel]
-          return (
-            <div key={facility.id} className="bg-white rounded-[18px] border border-border p-6 hover:border-primary/50 transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1 pr-2">
-                  <h3 className="text-lg font-semibold text-foreground">{facility.name}</h3>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                    <MapPin className="h-4 w-4 text-primary shrink-0" />
-                    {facility.location}
-                  </p>
-                </div>
-                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full shrink-0 ${supply.bg} ${supply.text}`}>
-                  {supply.label}
-                </span>
-              </div>
-
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-4 w-4 text-primary shrink-0" />
-                  {facility.phone}
-                </div>
-                <div className="text-sm text-muted-foreground break-all">{facility.email}</div>
-                <div className="text-sm">
-                  <span className="font-medium text-foreground">Hours: </span>
-                  <span className="text-muted-foreground text-xs">{facility.operatingHours}</span>
-                </div>
-              </div>
-
-              <div className="mb-4 pt-4 border-t border-border">
-                <p className="text-sm font-medium text-foreground mb-2">Services:</p>
-                <div className="flex flex-wrap gap-2">
-                  {facility.services.map((service) => (
-                    <span
-                      key={service}
-                      className="px-2 py-1 bg-light-pink text-primary text-xs rounded-full font-medium"
-                    >
-                      {service}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">{facility.accreditation}</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleEditFacility(facility)}
-                    className="p-2 hover:bg-light-pink rounded-xl transition text-primary"
-                    title="Edit"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteFacility(facility.id)}
-                    className="p-2 hover:bg-destructive/10 rounded-xl transition text-destructive"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {filteredFacilities.length === 0 && (
-        <div className="bg-white rounded-[18px] border border-border px-6 py-12 text-center shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-          <p className="text-muted-foreground">No facilities found matching your search.</p>
+      {isLoading ? (
+        <div className="bg-white rounded-[18px] border border-border px-6 py-12 text-center text-muted-foreground flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading facilities...
         </div>
+      ) : loadError ? (
+        <div className="bg-white rounded-[18px] border border-destructive/30 px-6 py-12 text-center text-destructive shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+          {loadError}
+          <div className="pt-3">
+            <Button onClick={loadFacilities} className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-2">
+              Retry
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Facilities Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredFacilities.map((facility) => {
+              const badge = stockBadge(facility)
+              return (
+                <div key={facility.id} className="bg-white rounded-[18px] border border-border p-6 hover:border-primary/50 transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1 pr-2">
+                      <h3 className="text-lg font-semibold text-foreground">{facility.name}</h3>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <MapPin className="h-4 w-4 text-primary shrink-0" />
+                        {facility.address}
+                      </p>
+                    </div>
+                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full shrink-0 ${badge.bg} ${badge.text}`}>
+                      {badge.label}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4 text-primary shrink-0" />
+                      {facility.contact}
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium text-foreground">Hours: </span>
+                      <span className="text-muted-foreground text-xs">{facility.operating_hours}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium text-foreground">Bookings: </span>
+                      <span className="text-muted-foreground text-xs">
+                        {facility.booked_count} / {facility.capacity}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 pt-4 border-t border-border">
+                    <span className="px-2 py-1 bg-light-pink text-primary text-xs rounded-full font-medium">
+                      {facility.type}
+                    </span>
+                  </div>
+
+                  <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => handleEditFacility(facility)}
+                      className="p-2 hover:bg-light-pink rounded-xl transition text-primary"
+                      title="Edit"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFacility(facility)}
+                      className="p-2 hover:bg-destructive/10 rounded-xl transition text-destructive"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {filteredFacilities.length === 0 && (
+            <div className="bg-white rounded-[18px] border border-border px-6 py-12 text-center shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+              <p className="text-muted-foreground">No facilities found matching your search.</p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Modal */}
       <FacilityModal
         isOpen={isModalOpen}
         facility={editingFacility}
+        isSaving={isSaving}
         onClose={() => {
           setIsModalOpen(false)
           setEditingFacility(null)
