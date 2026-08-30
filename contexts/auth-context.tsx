@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { login as apiLogin, logout as apiLogout, getMe, ApiError, type BackendUser } from '@/lib/api'
 
 interface Admin {
   id: string
@@ -11,7 +12,7 @@ interface Admin {
 interface AuthContextType {
   admin: Admin | null
   isAuthenticated: boolean
-  login: (username: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   logout: () => void
   isLoading: boolean
   error: string | null
@@ -19,42 +20,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function toDisplayAdmin(backendUser: BackendUser): Admin {
+  // The backend's User model has no separate "username" field (it logs
+  // in with email) -- existing screens expect { id, username, email }
+  // though, so we derive a display username from the email's local part.
+  return {
+    id: String(backendUser.id),
+    username: backendUser.email.split('@')[0],
+    email: backendUser.email,
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [admin, setAdmin] = useState<Admin | null>(null)
+  // Starts true and covers both the one-time startup check (is there
+  // already a valid token?) and the login submission itself -- the page
+  // that renders <LoginForm> waits for this before showing the form at
+  // all, so there's no "Signing in..." flash on first load either way.
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Initialize from localStorage
+  // On load, check for an existing token and confirm it's still valid
+  // (rather than trusting whatever was last saved) by re-fetching /auth/me/.
   useEffect(() => {
-    const storedAdmin = localStorage.getItem('admin')
-    if (storedAdmin) {
-      setAdmin(JSON.parse(storedAdmin))
+    let cancelled = false
+
+    getMe()
+      .then((backendUser) => {
+        if (cancelled) return
+        if (backendUser && backendUser.is_staff) {
+          setAdmin(toDisplayAdmin(backendUser))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
-    setIsLoading(false)
   }, [])
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // Simulate API call with delay
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      // Demo credentials: admin / admin123
-      if (username === 'admin' && password === 'admin123') {
-        const adminData: Admin = {
-          id: '1',
-          username: 'admin',
-          email: 'admin@kalingapp.com',
-        }
-        setAdmin(adminData)
-        localStorage.setItem('admin', JSON.stringify(adminData))
-      } else {
-        throw new Error('Invalid username or password')
-      }
+      const backendUser = await apiLogin(email, password)
+      setAdmin(toDisplayAdmin(backendUser))
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed'
+      const errorMessage = err instanceof ApiError ? err.message : 'Could not reach the server. Please try again.'
       setError(errorMessage)
       throw err
     } finally {
@@ -63,8 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
+    apiLogout()
     setAdmin(null)
-    localStorage.removeItem('admin')
     setError(null)
   }
 

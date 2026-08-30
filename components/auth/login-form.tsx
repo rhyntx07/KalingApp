@@ -8,7 +8,7 @@ import { AlertCircle, LogIn } from 'lucide-react'
 import Image from 'next/image'
 
 export default function LoginForm() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const router = useRouter()
   const { login, isLoading, error } = useAuth()
@@ -16,7 +16,7 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await login(username, password)
+      await login(email, password)
       router.push('/admin/dashboard')
     } catch (err) {
       // Error is handled by context
@@ -54,12 +54,13 @@ export default function LoginForm() {
             <p className="text-xs text-muted-foreground">Sign in to access the admin dashboard</p>
           </div>
 
-          {/* Demo Credentials */}
+          {/* No demo credentials shown here on purpose -- this logs into
+              a real is_staff account (e.g. the one created by the
+              backend's ensure_admin command), whose password is a real
+              secret, not something to hardcode in the UI. */}
           <div className="bg-light-pink/50 border border-primary/20 rounded-xl p-3 mb-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              <span className="font-semibold text-primary">Demo Credentials:</span>
-              <br />
-              Username: <span className="font-mono text-foreground">admin</span> · Password: <span className="font-mono text-foreground">admin123</span>
+              Sign in with an admin account (<span className="font-mono text-foreground">is_staff</span>). Ask whoever manages the backend for credentials.
             </p>
           </div>
 
@@ -74,15 +75,15 @@ export default function LoginForm() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+                Email
               </label>
               <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
                 disabled={isLoading}
                 className="w-full px-4 py-2.5 rounded-xl bg-white border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
               />
@@ -105,7 +106,7 @@ export default function LoginForm() {
 
             <Button
               type="submit"
-              disabled={isLoading || !username || !password}
+              disabled={isLoading || !email || !password}
               className="w-full bg-primary hover:bg-[#E05F86] text-white font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
             >
               <LogIn className="h-5 w-5" />
