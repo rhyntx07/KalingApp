@@ -113,25 +113,11 @@ export default function StatisticsPage() {
         <EngagementChart data={stats.articles_by_category} />
       </div>
 
-      {/* Charts Row 2 -- only render a pie chart once there's something to show */}
-      {(stats.donor_status_summary.length > 0 || stats.recipient_status_summary.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {stats.donor_status_summary.length > 0 ? (
-            <DonorChart data={stats.donor_status_summary} />
-          ) : (
-            <div className="bg-white rounded-[18px] border border-border p-6 flex items-center justify-center text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              No donor bookings yet
-            </div>
-          )}
-          {stats.recipient_status_summary.length > 0 ? (
-            <RecipientChart data={stats.recipient_status_summary} />
-          ) : (
-            <div className="bg-white rounded-[18px] border border-border p-6 flex items-center justify-center text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              No recipient bookings yet
-            </div>
-          )}
-        </div>
-      )}
+      {/* Charts Row 2 -- each pie renders its own empty state */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DonorChart data={stats.donor_status_summary} />
+        <RecipientChart data={stats.recipient_status_summary} />
+      </div>
 
       {/* Detailed Reports */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
