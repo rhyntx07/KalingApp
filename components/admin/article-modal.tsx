@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Article, ARTICLE_CATEGORIES } from '@/lib/types'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import RichTextEditor from '@/components/admin/rich-text-editor'
 
 export type ArticleFormValues = Omit<Article, 'id'>
 
@@ -51,7 +52,7 @@ export default function ArticleModal({ isOpen, article, onClose, onSave, isSavin
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.title || !formData.content || !formData.author || !formData.teaser) {
-      alert('Please fill in title, teaser, content, and author')
+      alert('Please fill in title, preview, content, and author')
       return
     }
     onSave(formData)
@@ -130,12 +131,14 @@ export default function ArticleModal({ isOpen, article, onClose, onSave, isSavin
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Teaser *</label>
+            {/* Labelled "Preview" for editors; the API field is still
+                `teaser`, so nothing about the contract changes. */}
+            <label className="block text-sm font-medium text-foreground mb-2">Preview *</label>
             <textarea
               name="teaser"
               value={formData.teaser}
               onChange={handleChange}
-              placeholder="Short summary shown on the article list..."
+              placeholder="Short preview shown on the article list..."
               rows={2}
               className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
             />
@@ -143,13 +146,16 @@ export default function ArticleModal({ isOpen, article, onClose, onSave, isSavin
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Content *</label>
-            <textarea
-              name="content"
+            {/* Formatting editor rather than a bare textarea: an admin can now
+                bold, italicise and bullet the body and preview it as mothers
+                will see it. Stored as Markdown, which is what the Android app
+                already renders -- see rich-text-editor.tsx for why that
+                format and not HTML. */}
+            <RichTextEditor
               value={formData.content}
-              onChange={handleChange}
-              placeholder="Article content..."
-              rows={8}
-              className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              onChange={(content) => setFormData((prev) => ({ ...prev, content }))}
+              placeholder="Article content. Select text and use the toolbar to format it..."
+              rows={10}
             />
           </div>
 
