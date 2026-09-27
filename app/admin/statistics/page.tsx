@@ -37,7 +37,7 @@ export default function StatisticsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 flex items-center justify-center text-muted-foreground gap-2">
+      <div className="p-4 md:p-8 flex items-center justify-center text-muted-foreground gap-2">
         <Loader2 className="h-5 w-5 animate-spin" /> Loading statistics...
       </div>
     )
@@ -45,7 +45,7 @@ export default function StatisticsPage() {
 
   if (loadError || !stats) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="bg-white rounded-[18px] border border-destructive/30 p-6 text-destructive">
           {loadError || 'Failed to load statistics'}
         </div>
@@ -57,7 +57,7 @@ export default function StatisticsPage() {
   const maxEngagement = Math.max(1, ...stats.articles_by_category.map((m) => m.count))
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">System Statistics & Reports</h1>

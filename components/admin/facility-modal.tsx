@@ -161,15 +161,28 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Milk Stock (mL)</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Milk Stock (Litres)</label>
+              {/* Shown in litres, stored in millilitres. The field name stays
+                  stock_level_ml because that is what the API accepts, and the
+                  x1000 on change is the only place the conversion happens.
+                  step=0.001 makes the round-trip exact -- 1.191 L -> 1191 mL --
+                  so opening a record and saving it unchanged cannot shift the
+                  stored volume. At 2dp it would drift by 1 mL every save. */}
               <input
                 type="number"
                 name="stock_level_ml"
                 min={0}
-                value={formData.stock_level_ml}
-                onChange={handleChange}
+                step={0.001}
+                value={formData.stock_level_ml / 1000}
+                onChange={(e) => {
+                  const litres = e.target.value === '' ? 0 : Number(e.target.value)
+                  setFormData((prev) => ({ ...prev, stock_level_ml: Math.round(litres * 1000) }))
+                }}
                 className="w-full px-4 py-3.5 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Stored as {formData.stock_level_ml.toLocaleString()} mL
+              </p>
             </div>
 
             <div>

@@ -7,14 +7,43 @@ import { Plus, Edit2, Trash2, Phone, MapPin, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import FacilityModal, { FacilityFormValues } from '@/components/admin/facility-modal'
 
+// Volumes are stored and transported in MILLILITRES everywhere -- the column is
+// stock_level_mL, the API field is stock_level_ml, and the manuscript quotes
+// volumes in mL -- so this is a RENDER-layer conversion only. Nothing here
+// changes what is sent to or received from the backend.
+//
+// 3 decimal places is deliberate, not cosmetic: 1.191 L -> 1191 mL exactly, so
+// the number shown in the edit form round-trips to the stored integer with no
+// rounding drift. Two places would silently shift a volume by 1 mL every time
+// a record was opened and saved.
+function formatLitres(ml: number, decimals = 2): string {
+  return `${(ml / 1000).toFixed(decimals).replace(/\.?0+$/, '')} L`
+}
+
 function stockBadge(facility: Facility) {
-  // 300mL is the same low-stock cutoff the backend's Smart Allocation
-  // uses to exclude a facility from recipient matching (see
-  // milkbank.allocation.MINIMUM_STOCK_THRESHOLD_ML) -- reusing it here
-  // instead of inventing a separate display-only threshold.
+  // !! READ THIS BEFORE CHANGING 300 !!
+  //
+  // The low-stock cutoff is DUPLICATED IN TWO PLACES and this is the second
+  // one. The number the Smart Allocation engine actually compares against
+  // lives in the backend:
+  //
+  //     backend/milkbank/allocation.py
+  //         MINIMUM_STOCK_THRESHOLD_ML = 300
+  //
+  // 300 is a PLACEHOLDER there, flagged as such in that file's own comment
+  // ("nobody ... has supplied a real minimum-stock cutoff"). It is waiting to
+  // be replaced with a real figure from St. Luke's / PGH / Fabella. Whoever
+  // replaces it MUST change this comparison too, or the badge will disagree
+  // with the engine that is actually routing mothers.
+  //
+  // Deliberately compared in MILLILITRES, never restated as 0.3 L: a third copy
+  // in different units is harder to spot than a second copy in the same units,
+  // and the display conversion above already handles units. The clean fix is a
+  // single published source, which needs a config endpoint the backend does
+  // not expose -- tracked as OPEN rather than silently duplicated.
   if (!facility.is_operational) return { label: 'Not Operational', bg: 'bg-muted', text: 'text-muted-foreground' }
   if (facility.stock_level_ml < 300) return { label: 'Low Stock', bg: 'bg-[#FFDAD9]', text: 'text-[#BA1A1A]' }
-  return { label: `${facility.stock_level_ml} mL`, bg: 'bg-green-100', text: 'text-green-700' }
+  return { label: formatLitres(facility.stock_level_ml), bg: 'bg-green-100', text: 'text-green-700' }
 }
 
 export default function FacilitiesPage() {
@@ -102,7 +131,7 @@ export default function FacilitiesPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

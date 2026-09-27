@@ -36,7 +36,7 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 flex items-center justify-center text-muted-foreground gap-2">
+      <div className="p-4 md:p-8 flex items-center justify-center text-muted-foreground gap-2">
         <Loader2 className="h-5 w-5 animate-spin" /> Loading dashboard...
       </div>
     )
@@ -44,7 +44,7 @@ export default function DashboardPage() {
 
   if (loadError || !stats) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="bg-white rounded-[18px] border border-destructive/30 p-6 text-destructive">
           {loadError || 'Failed to load dashboard stats'}
         </div>
@@ -84,7 +84,7 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
