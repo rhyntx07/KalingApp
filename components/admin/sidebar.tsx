@@ -50,8 +50,14 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-white border-r border-border overflow-y-auto">
-      {/* Logo Section */}
-      <div className="p-5 border-b border-border">
+      {/* Logo Section -- a fixed h-20 (not content-driven padding) so this box
+          is exactly as tall as the header bar's own h-20 (see Header.tsx).
+          Two independently-sized boxes (image+2-line text here vs. just
+          2-line text there) landed at slightly different heights, so their
+          bottom borders sat at different Y positions -- a visible "step" in
+          what should be one continuous line across the sidebar/header
+          boundary. */}
+      <div className="h-20 px-5 border-b border-border flex items-center">
         <div className="flex items-center gap-3">
           <Image
             src="/kalingapp-logo.png"
