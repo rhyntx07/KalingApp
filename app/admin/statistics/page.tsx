@@ -7,12 +7,14 @@ import ActivityChart from '@/components/admin/activity-chart'
 import EngagementChart from '@/components/admin/engagement-chart'
 import DonorChart from '@/components/admin/donor-chart'
 import RecipientChart from '@/components/admin/recipient-chart'
-import { TrendingUp, Users, Heart, Building2, Loader2 } from 'lucide-react'
+import { TrendingUp, Users, Heart, Building2, Loader2, FileDown } from 'lucide-react'
 
 export default function StatisticsPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -53,16 +55,50 @@ export default function StatisticsPage() {
     )
   }
 
+  // The PDF is built from the numbers already on screen (no second
+  // request), so the file always matches what the admin was looking at.
+  // Imported on click rather than at the top of the file: the PDF library
+  // is only needed by someone who actually presses the button.
+  const handleGeneratePdf = async () => {
+    setIsGeneratingPdf(true)
+    setPdfError(null)
+    try {
+      const { downloadStatisticsPdf } = await import('@/lib/statistics-pdf')
+      downloadStatisticsPdf(stats)
+    } catch {
+      setPdfError('Could not generate the PDF. Please try again.')
+    } finally {
+      setIsGeneratingPdf(false)
+    }
+  }
+
   const maxBooking = Math.max(1, ...stats.booking_trend.map((m) => m.count))
   const maxEngagement = Math.max(1, ...stats.articles_by_category.map((m) => m.count))
 
   return (
     <div className="p-4 md:p-8 space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">System Statistics & Reports</h1>
-        <p className="text-muted-foreground mt-2">Comprehensive analytics and activity reports for KalingApp</p>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">System Statistics & Reports</h1>
+          <p className="text-muted-foreground mt-2">Comprehensive analytics and activity reports for KalingApp</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleGeneratePdf}
+          disabled={isGeneratingPdf}
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60 shrink-0"
+        >
+          {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+          {isGeneratingPdf ? 'Generating...' : 'Generate PDF'}
+        </button>
       </div>
+
+      {pdfError && (
+        <div className="bg-white rounded-[18px] border border-destructive/30 p-4 text-sm text-destructive">
+          {pdfError}
+        </div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
