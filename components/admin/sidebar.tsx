@@ -8,6 +8,7 @@ import {
   BookOpen,
   MessageSquare,
   Building2,
+  Users,
   BarChart3,
   Settings,
 } from 'lucide-react'
@@ -32,6 +33,11 @@ const navItems = [
     label: 'Facilities',
     href: '/admin/facilities',
     icon: Building2,
+  },
+  {
+    label: 'User Management',
+    href: '/admin/users',
+    icon: Users,
   },
   {
     label: 'Statistics',
