@@ -2,10 +2,34 @@
 
 import { useState, useEffect } from 'react'
 import { Facility } from '@/lib/types'
+import { apiFetch } from '@/lib/api'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export type FacilityFormValues = Omit<Facility, 'id' | 'booked_count'>
+// staff_user_id / new_staff_email / new_staff_password are write-only on
+// the backend (milkbank.serializers.FacilitySerializer) and never come
+// back in a GET -- they don't belong on the Facility type itself (which
+// mirrors the read shape everywhere else in this app), only on what
+// this modal is allowed to POST.
+export type FacilityFormValues = Omit<Facility, 'id' | 'booked_count'> & {
+  staff_user_id?: number
+  new_staff_email?: string
+  new_staff_password?: string
+}
+
+type StaffAssignMode = 'none' | 'existing' | 'new'
+
+// Just enough of accounts.serializers.AdminUserListSerializer's shape
+// to build the "assign existing account" dropdown -- this modal already
+// has no business reading a mother's booking totals or any other field
+// that endpoint returns.
+interface StaffAccountOption {
+  id: number
+  email: string
+  role: string
+  is_staff: boolean
+  facility_name: string | null
+}
 
 interface FacilityModalProps {
   isOpen: boolean
@@ -35,6 +59,18 @@ const emptyForm: FacilityFormValues = {
 export default function FacilityModal({ isOpen, facility, onClose, onSave, isSaving }: FacilityModalProps) {
   const [formData, setFormData] = useState<FacilityFormValues>(emptyForm)
 
+  // Staffing is a create-time-only convenience (see FacilitySerializer.
+  // create() on the backend -- editing never touches it), kept as its
+  // own state rather than folded into formData since none of it is a
+  // real Facility field.
+  const [staffMode, setStaffMode] = useState<StaffAssignMode>('none')
+  const [selectedStaffId, setSelectedStaffId] = useState('')
+  const [newStaffEmail, setNewStaffEmail] = useState('')
+  const [newStaffPassword, setNewStaffPassword] = useState('')
+  const [staffFieldError, setStaffFieldError] = useState<string | null>(null)
+  const [unassignedStaff, setUnassignedStaff] = useState<StaffAccountOption[]>([])
+  const [isLoadingStaff, setIsLoadingStaff] = useState(false)
+
   useEffect(() => {
     if (facility) {
       const { id, booked_count, ...rest } = facility
@@ -42,7 +78,26 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
     } else {
       setFormData(emptyForm)
     }
+    setStaffMode('none')
+    setSelectedStaffId('')
+    setNewStaffEmail('')
+    setNewStaffPassword('')
+    setStaffFieldError(null)
   }, [facility, isOpen])
+
+  useEffect(() => {
+    // Only worth fetching for a brand-new facility -- editing never
+    // shows this section at all (see the JSX below).
+    if (!isOpen || facility) return
+    setIsLoadingStaff(true)
+    apiFetch('/auth/admin/users/')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((users: StaffAccountOption[]) => {
+        setUnassignedStaff(users.filter((u) => u.role === 'facility_staff' && !u.is_staff && !u.facility_name))
+      })
+      .catch(() => setUnassignedStaff([]))
+      .finally(() => setIsLoadingStaff(false))
+  }, [isOpen, facility])
 
   if (!isOpen) return null
 
@@ -65,7 +120,30 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
       alert('Please fill in name, address, and contact')
       return
     }
-    onSave(formData)
+
+    const payload: FacilityFormValues = { ...formData }
+    if (!facility) {
+      if (staffMode === 'existing') {
+        if (!selectedStaffId) {
+          setStaffFieldError('Choose a staff account, or switch back to "No staff account yet".')
+          return
+        }
+        payload.staff_user_id = Number(selectedStaffId)
+      } else if (staffMode === 'new') {
+        if (!newStaffEmail || !newStaffPassword) {
+          setStaffFieldError('Enter both an email and a password for the new staff account.')
+          return
+        }
+        if (newStaffPassword.length < 8) {
+          setStaffFieldError('The password needs to be at least 8 characters.')
+          return
+        }
+        payload.new_staff_email = newStaffEmail
+        payload.new_staff_password = newStaffPassword
+      }
+    }
+    setStaffFieldError(null)
+    onSave(payload)
   }
 
   return (
@@ -242,6 +320,104 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
             />
             <span className="text-sm text-foreground">Operational</span>
           </label>
+
+          {/* Staff Account -- create-time only. Editing an existing
+              facility never shows this: reassigning its staff mid-edit
+              is a bigger, more disruptive decision (that account's
+              current facility loses its only login) than this section
+              is meant for, and the backend only ever acts on these
+              fields from a POST anyway (see FacilitySerializer.create()). */}
+          {!facility && (
+            <div className="rounded-xl border border-border p-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Staff Account</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional. Nobody can sign in to this facility&apos;s dashboard until a
+                  facility-staff account is assigned to it -- do that now, or leave it for later.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ['none', 'No staff account yet'],
+                    ['existing', 'Assign existing account'],
+                    ['new', 'Create new account'],
+                  ] as [StaffAssignMode, string][]
+                ).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setStaffMode(mode)
+                      setStaffFieldError(null)
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                      staffMode === mode
+                        ? 'bg-primary text-white'
+                        : 'bg-muted text-muted-foreground hover:bg-light-pink/50 hover:text-primary'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {staffMode === 'existing' &&
+                (isLoadingStaff ? (
+                  <p className="text-sm text-muted-foreground">Loading staff accounts...</p>
+                ) : unassignedStaff.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No facility-staff accounts are currently unassigned. Use &quot;Create new account&quot; instead.
+                  </p>
+                ) : (
+                  <select
+                    value={selectedStaffId}
+                    onChange={(e) => setSelectedStaffId(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+                  >
+                    <option value="">Select a staff account...</option>
+                    {unassignedStaff.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.email}
+                      </option>
+                    ))}
+                  </select>
+                ))}
+
+              {staffMode === 'new' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      value={newStaffEmail}
+                      onChange={(e) => setNewStaffEmail(e.target.value)}
+                      placeholder="staff@hospital.ph"
+                      className="w-full px-4 py-3 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">Temporary Password</label>
+                    {/* Plain text, not type="password" -- deliberately
+                        visible so whoever's filling this in can actually
+                        relay it to the facility afterward. There's no
+                        "send setup email" flow behind this yet; the
+                        admin is the one handing the credential over. */}
+                    <input
+                      type="text"
+                      value={newStaffPassword}
+                      onChange={(e) => setNewStaffPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      className="w-full px-4 py-3 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {staffFieldError && <p className="text-xs text-destructive">{staffFieldError}</p>}
+            </div>
+          )}
 
           {/* Modal Footer */}
           <div className="flex items-center justify-end gap-3 pt-6 border-t border-border">

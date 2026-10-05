@@ -49,9 +49,27 @@ function roleBadge(user: AdminUser) {
     'Facility Staff': 'bg-[#E3F2FD] text-[#1565C0]',
     Mother: 'bg-light-pink text-primary',
   }
+  // whitespace-nowrap: "Facility Staff" is the longest label, and the
+  // table's Name/Role columns are narrow enough that it wrapped onto a
+  // second line otherwise -- every other badge in this app is one line.
   return (
-    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${styles[label]}`}>{label}</span>
+    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${styles[label]}`}>
+      {label}
+    </span>
   )
+}
+
+// What the Name column shows, since no single field on the account
+// means "name" for every role: a mother has mom_name, but a facility
+// staff account doesn't (it's a login for a hospital, not a person
+// with a baby) -- its one identifying name is the facility it runs,
+// which used to sit in its own now-removed Facility column. An admin
+// account has neither, so it falls back to the placeholder.
+function displayName(user: AdminUser): string {
+  const label = roleLabel(user)
+  if (label === 'Mother') return user.mom_name || '—'
+  if (label === 'Facility Staff') return user.facility_name || '—'
+  return '—'
 }
 
 function statusBadge(isActive: boolean) {
@@ -80,6 +98,11 @@ export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [detailsUser, setDetailsUser] = useState<AdminUser | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  // 'all' means the Total Accounts card -- not a fourth role, just "no
+  // filter applied". Clicking an already-active role card clears back
+  // to 'all' rather than doing nothing, so the same click both applies
+  // and removes a filter.
+  const [roleFilter, setRoleFilter] = useState<'all' | 'Mother' | 'Facility Staff' | 'Admin'>('all')
 
   const loadUsers = () => {
     setIsLoading(true)
@@ -99,17 +122,18 @@ export default function UserManagementPage() {
   }, [])
 
   const filteredUsers = users.filter((user) => {
+    if (roleFilter !== 'all' && roleLabel(user) !== roleFilter) return false
     const query = searchTerm.toLowerCase()
-    return (
-      user.email.toLowerCase().includes(query) ||
-      user.mom_name.toLowerCase().includes(query) ||
-      (user.facility_name || '').toLowerCase().includes(query)
-    )
+    return user.email.toLowerCase().includes(query) || displayName(user).toLowerCase().includes(query)
   })
 
   const motherCount = users.filter((u) => roleLabel(u) === 'Mother').length
   const staffCount = users.filter((u) => roleLabel(u) === 'Facility Staff').length
   const adminCount = users.filter((u) => roleLabel(u) === 'Admin').length
+
+  const toggleRoleFilter = (role: 'Mother' | 'Facility Staff' | 'Admin') => {
+    setRoleFilter((prev) => (prev === role ? 'all' : role))
+  }
 
   // The backend also refuses this (AdminUserDeleteView.perform_destroy),
   // so this is a convenience that skips the round trip and the
@@ -152,9 +176,17 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats -- each card doubles as a filter button for the table
+          below. Total Accounts clears the filter; clicking the active
+          card again also clears it (see toggleRoleFilter). */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-[18px] border border-border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        <button
+          type="button"
+          onClick={() => setRoleFilter('all')}
+          className={`text-left bg-white rounded-[18px] border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all ${
+            roleFilter === 'all' ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total Accounts</p>
@@ -162,8 +194,14 @@ export default function UserManagementPage() {
             </div>
             <UsersIcon className="h-8 w-8 text-primary/50" />
           </div>
-        </div>
-        <div className="bg-white rounded-[18px] border border-border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleRoleFilter('Mother')}
+          className={`text-left bg-white rounded-[18px] border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all ${
+            roleFilter === 'Mother' ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Mothers</p>
@@ -171,8 +209,16 @@ export default function UserManagementPage() {
             </div>
             <Heart className="h-8 w-8 text-primary/50" />
           </div>
-        </div>
-        <div className="bg-white rounded-[18px] border border-border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleRoleFilter('Facility Staff')}
+          className={`text-left bg-white rounded-[18px] border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all ${
+            roleFilter === 'Facility Staff'
+              ? 'border-[#1565C0] ring-2 ring-[#1565C0]/30'
+              : 'border-border hover:border-[#1565C0]/40'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Facility Staff</p>
@@ -180,8 +226,14 @@ export default function UserManagementPage() {
             </div>
             <Building2 className="h-8 w-8 text-[#1565C0]/50" />
           </div>
-        </div>
-        <div className="bg-white rounded-[18px] border border-border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleRoleFilter('Admin')}
+          className={`text-left bg-white rounded-[18px] border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all ${
+            roleFilter === 'Admin' ? 'border-[#D4A437] ring-2 ring-[#D4A437]/30' : 'border-border hover:border-[#D4A437]/40'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Admins</p>
@@ -189,12 +241,12 @@ export default function UserManagementPage() {
             </div>
             <ShieldCheck className="h-8 w-8 text-[#D4A437]/50" />
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Search */}
-      <div className="bg-white rounded-[18px] border border-border p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-        <div className="relative">
+      <div className="bg-white rounded-[18px] border border-border p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
@@ -204,6 +256,16 @@ export default function UserManagementPage() {
             className="w-full pl-10 pr-4 py-3 bg-white border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
           />
         </div>
+        {roleFilter !== 'all' && (
+          <button
+            type="button"
+            onClick={() => setRoleFilter('all')}
+            className="shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-light-pink text-primary hover:bg-light-pink/70 transition"
+          >
+            Showing: {roleFilter}
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -229,7 +291,6 @@ export default function UserManagementPage() {
                   <th className="px-6 py-3 font-medium">Name</th>
                   <th className="px-6 py-3 font-medium">Email</th>
                   <th className="px-6 py-3 font-medium">Role</th>
-                  <th className="px-6 py-3 font-medium">Facility</th>
                   <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium">Joined</th>
                   <th className="px-6 py-3 font-medium text-right">Actions</th>
@@ -239,10 +300,9 @@ export default function UserManagementPage() {
                 {filteredUsers.length > 0 ? (
                   filteredUsers.map((user) => (
                     <tr key={user.id} className="border-b border-border last:border-0 hover:bg-muted/50">
-                      <td className="px-6 py-4 font-medium text-foreground">{user.mom_name || '—'}</td>
+                      <td className="px-6 py-4 font-medium text-foreground">{displayName(user)}</td>
                       <td className="px-6 py-4 text-muted-foreground">{user.email}</td>
                       <td className="px-6 py-4">{roleBadge(user)}</td>
-                      <td className="px-6 py-4 text-muted-foreground">{user.facility_name || '—'}</td>
                       <td className="px-6 py-4">{statusBadge(user.is_active)}</td>
                       <td className="px-6 py-4 text-muted-foreground">{formatDate(user.date_joined)}</td>
                       <td className="px-6 py-4">
@@ -272,8 +332,10 @@ export default function UserManagementPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                      No accounts found matching your search.
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                      {searchTerm || roleFilter !== 'all'
+                        ? 'No accounts match your search or filter.'
+                        : 'No accounts found.'}
                     </td>
                   </tr>
                 )}
@@ -289,7 +351,7 @@ export default function UserManagementPage() {
           <div className="bg-white rounded-[20px] border border-border max-w-md w-full max-h-[90vh] overflow-y-auto shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
             <div className="sticky top-0 bg-white border-b border-border px-6 py-5 flex items-center justify-between rounded-t-[20px]">
               <div>
-                <h2 className="text-xl font-bold text-foreground">{detailsUser.mom_name || detailsUser.email}</h2>
+                <h2 className="text-xl font-bold text-foreground">{displayName(detailsUser) !== '—' ? displayName(detailsUser) : detailsUser.email}</h2>
                 <p className="text-sm text-muted-foreground">{detailsUser.email}</p>
               </div>
               <button

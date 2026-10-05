@@ -20,6 +20,27 @@ function formatLitres(ml: number, decimals = 2): string {
   return `${(ml / 1000).toFixed(decimals).replace(/\.?0+$/, '')} L`
 }
 
+// Pulls a real message out of a DRF validation error body instead of a
+// bare "could not save" -- matters more here than on most forms, since
+// the Staff Account section's errors (an email already in use, a staff
+// account already assigned elsewhere) are exactly the kind of thing the
+// admin needs to actually read to fix.
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json()
+    if (typeof body === 'string') return body
+    if (body?.detail) return String(body.detail)
+    const firstKey = Object.keys(body || {})[0]
+    if (firstKey) {
+      const value = body[firstKey]
+      return Array.isArray(value) ? String(value[0]) : String(value)
+    }
+  } catch {
+    // Response body wasn't JSON (or was empty) -- fall through.
+  }
+  return fallback
+}
+
 function stockBadge(facility: Facility) {
   // !! READ THIS BEFORE CHANGING 300 !!
   //
@@ -116,7 +137,7 @@ export default function FacilitiesPage() {
             method: 'POST',
             body: JSON.stringify(values),
           })
-      if (!res.ok) throw new Error('Could not save this facility')
+      if (!res.ok) throw new Error(await extractErrorMessage(res, 'Could not save this facility'))
       const saved: Facility = await res.json()
       setFacilities((prev) =>
         editingFacility ? prev.map((f) => (f.id === saved.id ? saved : f)) : [...prev, saved]
