@@ -30,6 +30,7 @@ const emptyForm: ArticleFormValues = {
 
 export default function ArticleModal({ isOpen, article, onClose, onSave, isSaving }: ArticleModalProps) {
   const [formData, setFormData] = useState<ArticleFormValues>(emptyForm)
+  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (article) {
@@ -38,6 +39,7 @@ export default function ArticleModal({ isOpen, article, onClose, onSave, isSavin
     } else {
       setFormData(emptyForm)
     }
+    setFormError(null)
   }, [article, isOpen])
 
   if (!isOpen) return null
@@ -52,9 +54,10 @@ export default function ArticleModal({ isOpen, article, onClose, onSave, isSavin
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.title || !formData.content || !formData.author || !formData.teaser) {
-      alert('Please fill in title, preview, content, and author')
+      setFormError('Please fill in the title, preview, content, and author before saving.')
       return
     }
+    setFormError(null)
     onSave(formData)
   }
 
@@ -76,6 +79,12 @@ export default function ArticleModal({ isOpen, article, onClose, onSave, isSavin
 
         {/* Modal Content */}
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          {formError && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {formError}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Title *</label>

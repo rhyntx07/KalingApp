@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/contexts/auth-context'
 import { Eye, Trash2, X, Search, Loader2, Users as UsersIcon, ShieldCheck, Building2, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import ConfirmDialog from '@/components/admin/confirm-dialog'
 
 // Every account in the system -- mothers, facility staff, and other
 // admins -- from GET /auth/admin/users/ (accounts.serializers.
@@ -98,6 +99,7 @@ export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [detailsUser, setDetailsUser] = useState<AdminUser | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null)
   // 'all' means the Total Accounts card -- not a fourth role, just "no
   // filter applied". Clicking an already-active role card clears back
   // to 'all' rather than doing nothing, so the same click both applies
@@ -141,11 +143,17 @@ export default function UserManagementPage() {
   // always going to fail -- not the only thing stopping it.
   const isSelf = (user: AdminUser) => admin !== null && String(user.id) === admin.id
 
-  const handleDelete = async (user: AdminUser) => {
+  // Asking is separate from doing: this only opens the confirmation
+  // dialog. The request itself is confirmDelete below, run only when the
+  // admin presses the dialog's button.
+  const requestDelete = (user: AdminUser) => {
     if (isSelf(user)) return
-    if (!confirm(`Permanently delete ${user.email}? This also deletes everything tied to this account -- bookings, chat history, notifications and comments. This cannot be undone.`)) {
-      return
-    }
+    setPendingDelete(user)
+  }
+
+  const confirmDelete = async () => {
+    const user = pendingDelete
+    if (!user) return
     setActionError(null)
     setDeletingId(user.id)
     try {
@@ -157,6 +165,7 @@ export default function UserManagementPage() {
       setActionError(err instanceof Error ? err.message : 'Could not delete this account')
     } finally {
       setDeletingId(null)
+      setPendingDelete(null)
     }
   }
 
@@ -315,7 +324,7 @@ export default function UserManagementPage() {
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(user)}
+                            onClick={() => requestDelete(user)}
                             disabled={isSelf(user) || deletingId === user.id}
                             className="p-2 hover:bg-destructive/10 rounded-xl transition text-destructive disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                             title={isSelf(user) ? "You can't delete your own account" : 'Delete account'}
@@ -344,6 +353,18 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this account?"
+        message={`${pendingDelete?.email ?? 'This account'} will be deleted permanently, along with everything tied to it: bookings, chat history, notifications and comments. This cannot be undone.`}
+        confirmLabel="Delete account"
+        cancelLabel="Keep account"
+        tone="danger"
+        busy={deletingId !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
 
       {/* View Details */}
       {detailsUser && (
@@ -386,7 +407,7 @@ export default function UserManagementPage() {
 
             <div className="px-6 pb-6 flex items-center justify-between gap-3">
               <Button
-                onClick={() => handleDelete(detailsUser)}
+                onClick={() => requestDelete(detailsUser)}
                 disabled={isSelf(detailsUser) || deletingId === detailsUser.id}
                 className="bg-[#FFDAD9] hover:bg-destructive/20 text-destructive rounded-xl px-4 py-2 disabled:opacity-40"
                 title={isSelf(detailsUser) ? "You can't delete your own account" : undefined}

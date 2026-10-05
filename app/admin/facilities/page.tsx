@@ -6,6 +6,7 @@ import { Facility } from '@/lib/types'
 import { Plus, Edit2, Trash2, Phone, MapPin, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import FacilityModal, { FacilityFormValues } from '@/components/admin/facility-modal'
+import ConfirmDialog from '@/components/admin/confirm-dialog'
 
 // Volumes are stored and transported in MILLILITRES everywhere -- the column is
 // stock_level_mL, the API field is stock_level_ml, and the manuscript quotes
@@ -76,6 +77,8 @@ export default function FacilitiesPage() {
   const [editingFacility, setEditingFacility] = useState<Facility | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<Facility | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const loadFacilities = () => {
     setIsLoading(true)
@@ -112,8 +115,10 @@ export default function FacilitiesPage() {
     setIsModalOpen(true)
   }
 
-  const handleDeleteFacility = async (facility: Facility) => {
-    if (!confirm(`Delete ${facility.name}? This cannot be undone.`)) return
+  const confirmDeleteFacility = async () => {
+    if (!pendingDelete) return
+    const facility = pendingDelete
+    setIsDeleting(true)
     setActionError(null)
     try {
       const res = await apiFetch(`/milkbank/facilities/${facility.id}/`, { method: 'DELETE' })
@@ -121,6 +126,9 @@ export default function FacilitiesPage() {
       setFacilities((prev) => prev.filter((f) => f.id !== facility.id))
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not delete this facility')
+    } finally {
+      setIsDeleting(false)
+      setPendingDelete(null)
     }
   }
 
@@ -253,7 +261,7 @@ export default function FacilitiesPage() {
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteFacility(facility)}
+                      onClick={() => setPendingDelete(facility)}
                       className="p-2 hover:bg-destructive/10 rounded-xl transition text-destructive"
                       title="Delete"
                     >
@@ -272,6 +280,18 @@ export default function FacilitiesPage() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete facility?"
+        message={`${pendingDelete?.name ?? 'This facility'} will be removed permanently. This cannot be undone.`}
+        confirmLabel="Delete facility"
+        cancelLabel="Keep it"
+        tone="danger"
+        busy={isDeleting}
+        onConfirm={confirmDeleteFacility}
+        onCancel={() => setPendingDelete(null)}
+      />
 
       {/* Modal */}
       <FacilityModal

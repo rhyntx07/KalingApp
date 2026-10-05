@@ -68,6 +68,7 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
   const [newStaffEmail, setNewStaffEmail] = useState('')
   const [newStaffPassword, setNewStaffPassword] = useState('')
   const [staffFieldError, setStaffFieldError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const [unassignedStaff, setUnassignedStaff] = useState<StaffAccountOption[]>([])
   const [isLoadingStaff, setIsLoadingStaff] = useState(false)
 
@@ -83,6 +84,7 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
     setNewStaffEmail('')
     setNewStaffPassword('')
     setStaffFieldError(null)
+    setFormError(null)
   }, [facility, isOpen])
 
   useEffect(() => {
@@ -117,9 +119,10 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name || !formData.address || !formData.contact) {
-      alert('Please fill in name, address, and contact')
+      setFormError('Please fill in the facility name, address, and contact before saving.')
       return
     }
+    setFormError(null)
 
     const payload: FacilityFormValues = { ...formData }
     if (!facility) {
@@ -164,6 +167,12 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
 
         {/* Modal Content */}
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          {formError && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {formError}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Facility Name *</label>

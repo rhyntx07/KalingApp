@@ -6,6 +6,7 @@ import { Article } from '@/lib/types'
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import ArticleModal, { ArticleFormValues } from '@/components/admin/article-modal'
+import ConfirmDialog from '@/components/admin/confirm-dialog'
 
 export default function KnowledgeBasePage() {
   const [articles, setArticles] = useState<Article[]>([])
@@ -16,6 +17,8 @@ export default function KnowledgeBasePage() {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<Article | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const loadArticles = () => {
     setIsLoading(true)
@@ -52,8 +55,10 @@ export default function KnowledgeBasePage() {
     setIsModalOpen(true)
   }
 
-  const handleDeleteArticle = async (article: Article) => {
-    if (!confirm(`Delete "${article.title}"? This cannot be undone.`)) return
+  const confirmDeleteArticle = async () => {
+    if (!pendingDelete) return
+    const article = pendingDelete
+    setIsDeleting(true)
     setActionError(null)
     try {
       const res = await apiFetch(`/articles/admin/${article.id}/`, { method: 'DELETE' })
@@ -61,6 +66,9 @@ export default function KnowledgeBasePage() {
       setArticles((prev) => prev.filter((a) => a.id !== article.id))
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not delete this article')
+    } finally {
+      setIsDeleting(false)
+      setPendingDelete(null)
     }
   }
 
@@ -173,7 +181,7 @@ export default function KnowledgeBasePage() {
                           <Edit2 className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteArticle(article)}
+                          onClick={() => setPendingDelete(article)}
                           className="p-2 hover:bg-destructive/10 rounded-xl transition text-destructive"
                           title="Delete"
                         >
@@ -196,6 +204,18 @@ export default function KnowledgeBasePage() {
       </div>
 
       {/* Modal */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete article?"
+        message={`"${pendingDelete?.title ?? 'This article'}" will be removed from the Knowledge Hub permanently. This cannot be undone.`}
+        confirmLabel="Delete article"
+        cancelLabel="Keep it"
+        tone="danger"
+        busy={isDeleting}
+        onConfirm={confirmDeleteArticle}
+        onCancel={() => setPendingDelete(null)}
+      />
+
       <ArticleModal
         isOpen={isModalOpen}
         article={editingArticle}
