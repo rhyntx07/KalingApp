@@ -7,6 +7,7 @@ import ActivityChart from '@/components/admin/activity-chart'
 import EngagementChart from '@/components/admin/engagement-chart'
 import DonorChart from '@/components/admin/donor-chart'
 import RecipientChart from '@/components/admin/recipient-chart'
+import DeclineReasonsChart from '@/components/admin/decline-reasons-chart'
 import { TrendingUp, Users, Heart, Building2, Loader2, FileDown } from 'lucide-react'
 
 export default function StatisticsPage() {
@@ -153,6 +154,35 @@ export default function StatisticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DonorChart data={stats.donor_status_summary} />
         <RecipientChart data={stats.recipient_status_summary} />
+      </div>
+
+      {/* Why bookings were declined -- the chart, and the same numbers as a
+          list, since a pie is poor at showing exact counts. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DeclineReasonsChart data={stats.decline_reasons} />
+        <div className="bg-white rounded-[18px] border border-border p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+          <h3 className="font-semibold text-foreground mb-4">Decline Reasons Summary</h3>
+          {stats.decline_reasons.length > 0 ? (
+            <div className="space-y-2">
+              {stats.decline_reasons.map((item) => (
+                <div key={item.reason} className="flex items-center justify-between p-3 bg-light-pink/30 rounded-xl">
+                  <span className="text-sm text-foreground">{item.reason}</span>
+                  <span className="text-lg font-semibold text-primary">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No declined bookings yet</p>
+          )}
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Total declined:{' '}
+              <span className="font-semibold text-foreground">
+                {stats.decline_reasons.reduce((sum, item) => sum + item.count, 0)}
+              </span>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Detailed Reports */}

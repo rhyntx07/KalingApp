@@ -269,6 +269,49 @@ export function buildStatisticsPdf(stats: DashboardStats, generatedAt: Date = ne
   }
   y += SECTION_GAP
 
+  // --- Why bookings were declined ------------------------------------------
+  const reasons = stats.decline_reasons
+  ensureSpace(HEADING_HEIGHT + Math.max(1, reasons.length) * categoryRow + 8)
+  sectionHeading(
+    'Top Reasons for Decline',
+    'Why bookings were declined, most common first',
+    MARGIN,
+    y,
+    CONTENT_WIDTH
+  )
+  y += HEADING_HEIGHT
+
+  if (reasons.length > 0) {
+    const labelWidth = 70
+    const countWidth = 22
+    const trackWidth = CONTENT_WIDTH - labelWidth - countWidth
+    const reasonTotal = reasons.reduce((sum, entry) => sum + entry.count, 0)
+    const maxReason = Math.max(1, ...reasons.map((entry) => entry.count))
+    reasons.forEach((entry) => {
+      ensureSpace(categoryRow + 8)
+      const percent = Math.round((entry.count / reasonTotal) * 100)
+      text(fit(entry.reason, labelWidth - 4, 8.5), MARGIN, y + 4.6, { size: 8.5 })
+      bar(MARGIN + labelWidth, y + 2, trackWidth, 3.2, entry.count / maxReason, PRIMARY)
+      text(`${formatCount(entry.count)} (${percent === 0 ? '<1' : percent}%)`, MARGIN + CONTENT_WIDTH, y + 4.6, {
+        size: 8.5,
+        bold: true,
+        align: 'right',
+      })
+      y += categoryRow
+    })
+    text(
+      `${formatCount(reasonTotal)} declined booking${reasonTotal === 1 ? '' : 's'}`,
+      MARGIN,
+      y + 5,
+      { size: 8.5, color: MUTED }
+    )
+    y += 5
+  } else {
+    text('No declined bookings yet', MARGIN, y + 4, { size: 9, color: MUTED })
+    y += 4
+  }
+  y += SECTION_GAP
+
   // --- Donor / recipient status, side by side ----------------------------
   const columnGap = 10
   const columnWidth = (CONTENT_WIDTH - columnGap) / 2

@@ -64,4 +64,8 @@ export interface DashboardStats {
   articles_by_category: { category: string; count: number }[]
   donor_status_summary: { status: string; count: number }[]
   recipient_status_summary: { status: string; count: number }[]
+  // Why requests were declined, most common first. Only declines -- never
+  // expired bookings. A decline with no recorded reason comes back as
+  // "Not specified".
+  decline_reasons: { reason: string; count: number }[]
 }

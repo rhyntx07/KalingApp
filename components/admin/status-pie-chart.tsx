@@ -19,6 +19,9 @@ interface StatusPieChartProps {
   /** What one unit is, for the tooltip -- e.g. "donor bookings". */
   unitLabel: string
   emptyMessage: string
+  /** What each slice is, for the "across N ..." line. Defaults to status/statuses. */
+  sliceNoun?: string
+  sliceNounPlural?: string
 }
 
 const RADIAN = Math.PI / 180
@@ -75,7 +78,14 @@ function renderSliceLabel(props: PieLabelRenderProps) {
   )
 }
 
-export default function StatusPieChart({ title, data, unitLabel, emptyMessage }: StatusPieChartProps) {
+export default function StatusPieChart({
+  title,
+  data,
+  unitLabel,
+  emptyMessage,
+  sliceNoun = 'status',
+  sliceNounPlural = 'statuses',
+}: StatusPieChartProps) {
   const total = data.reduce((sum, entry) => sum + entry.count, 0)
 
   return (
@@ -83,8 +93,8 @@ export default function StatusPieChart({ title, data, unitLabel, emptyMessage }:
       <div className="mb-6">
         <h3 className="font-semibold text-foreground">{title}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          {total.toLocaleString()} {unitLabel} across {data.length} status
-          {data.length === 1 ? '' : 'es'}
+          {total.toLocaleString()} {unitLabel} across {data.length}{' '}
+          {data.length === 1 ? sliceNoun : sliceNounPlural}
         </p>
       </div>
       {total > 0 ? (
