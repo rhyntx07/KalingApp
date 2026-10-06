@@ -54,16 +54,6 @@ export default function LoginForm() {
             <p className="text-xs text-muted-foreground">Sign in to access the admin dashboard</p>
           </div>
 
-          {/* No demo credentials shown here on purpose -- this logs into
-              a real is_staff account (e.g. the one created by the
-              backend's ensure_admin command), whose password is a real
-              secret, not something to hardcode in the UI. */}
-          <div className="bg-light-pink/50 border border-primary/20 rounded-xl p-3 mb-4">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Sign in with an admin account (<span className="font-mono text-foreground">is_staff</span>). Ask whoever manages the backend for credentials.
-            </p>
-          </div>
-
           {/* Error */}
           {error && (
             <div className="flex items-start gap-2 bg-[#FFDAD9] border border-destructive/30 rounded-xl p-3 mb-4">
