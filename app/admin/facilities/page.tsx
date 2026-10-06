@@ -122,7 +122,9 @@ export default function FacilitiesPage() {
     setActionError(null)
     try {
       const res = await apiFetch(`/milkbank/facilities/${facility.id}/`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Could not delete this facility')
+      // The backend refuses to delete a facility that has bookings on record,
+      // and says so -- show its reason rather than a bare "could not delete".
+      if (!res.ok) throw new Error(await extractErrorMessage(res, 'Could not delete this facility'))
       setFacilities((prev) => prev.filter((f) => f.id !== facility.id))
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not delete this facility')
