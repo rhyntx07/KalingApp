@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Bold, Italic, List, Eye, Pencil } from 'lucide-react'
+import { applyMarker, type Marker } from './rich-text-format'
 
 /**
  * Formatting editor for article content.
@@ -33,8 +34,6 @@ interface RichTextEditorProps {
   rows?: number
 }
 
-type Marker = '**' | '*'
-
 export default function RichTextEditor({
   value,
   onChange,
@@ -44,39 +43,20 @@ export default function RichTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [showPreview, setShowPreview] = useState(false)
 
-  /** Wraps the current selection in `marker`, or unwraps it if already wrapped. */
+  /**
+   * Applies `marker` to the selection, or removes it if the selection already
+   * has it. The rules live in applyMarker() (rich-text-format.ts); this only deals with the
+   * textarea's selection and caret.
+   */
   const wrapSelection = (marker: Marker) => {
     const el = textareaRef.current
     if (!el) return
 
-    const start = el.selectionStart
-    const end = el.selectionEnd
-    const selected = value.slice(start, end)
-
-    // Nothing selected: drop the markers in and put the caret between them so
-    // the next keystroke is already formatted, which is what a word processor
-    // does.
-    if (start === end) {
-      const next = `${value.slice(0, start)}${marker}${marker}${value.slice(end)}`
-      onChange(next)
-      requestAnimationFrame(() => {
-        el.focus()
-        el.setSelectionRange(start + marker.length, start + marker.length)
-      })
-      return
-    }
-
-    const alreadyWrapped =
-      selected.startsWith(marker) && selected.endsWith(marker) && selected.length > marker.length * 2
-
-    const replacement = alreadyWrapped
-      ? selected.slice(marker.length, -marker.length)
-      : `${marker}${selected}${marker}`
-
-    onChange(`${value.slice(0, start)}${replacement}${value.slice(end)}`)
+    const result = applyMarker(value, el.selectionStart, el.selectionEnd, marker)
+    onChange(result.value)
     requestAnimationFrame(() => {
       el.focus()
-      el.setSelectionRange(start, start + replacement.length)
+      el.setSelectionRange(result.selectionStart, result.selectionEnd)
     })
   }
 
