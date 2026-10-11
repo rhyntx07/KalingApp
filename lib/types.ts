@@ -15,8 +15,17 @@ export interface Facility {
   unavailable_donor_dates: string[]
   unavailable_recipient_dates: string[]
   is_operational: boolean
+  // Bookings the facility takes PER DAY -- each day has its own count
+  // (backend: milkbank/capacity.py). The fields below are computed by the
+  // API from real bookings and are read-only.
   capacity: number
+  /** Today's bookings. booked_count is the same figure under its old name. */
+  bookings_today?: number
   booked_count: number
+  /** The next 10 weekdays and how many slots each has taken. */
+  upcoming_bookings?: { date: string; count: number }[]
+  /** Days with no slot left. */
+  fully_booked_dates?: string[]
   stock_level_ml: number
   latitude: number
   longitude: number

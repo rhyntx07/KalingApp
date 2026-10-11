@@ -241,10 +241,17 @@ export default function FacilitiesPage() {
                       <span className="text-muted-foreground text-xs">{facility.operating_hours}</span>
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium text-foreground">Bookings: </span>
+                      {/* Capacity is per day: each day has its own count. */}
+                      <span className="font-medium text-foreground">Bookings today: </span>
                       <span className="text-muted-foreground text-xs">
-                        {facility.booked_count} / {facility.capacity}
+                        {facility.bookings_today ?? facility.booked_count} / {facility.capacity} per day
                       </span>
+                      {(facility.fully_booked_dates?.length ?? 0) > 0 && (
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          {facility.fully_booked_dates!.length} fully booked day
+                          {facility.fully_booked_dates!.length === 1 ? '' : 's'} ahead
+                        </span>
+                      )}
                     </div>
                   </div>
 

@@ -11,7 +11,10 @@ import { Button } from '@/components/ui/button'
 // back in a GET -- they don't belong on the Facility type itself (which
 // mirrors the read shape everywhere else in this app), only on what
 // this modal is allowed to POST.
-export type FacilityFormValues = Omit<Facility, 'id' | 'booked_count'> & {
+export type FacilityFormValues = Omit<
+  Facility,
+  'id' | 'booked_count' | 'bookings_today' | 'upcoming_bookings' | 'fully_booked_dates'
+> & {
   staff_user_id?: number
   new_staff_email?: string
   new_staff_password?: string
@@ -74,7 +77,8 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
 
   useEffect(() => {
     if (facility) {
-      const { id, booked_count, ...rest } = facility
+      // The calendar counts are computed by the API, never edited here.
+      const { id, booked_count, bookings_today, upcoming_bookings, fully_booked_dates, ...rest } = facility
       setFormData(rest)
     } else {
       setFormData(emptyForm)
@@ -236,7 +240,7 @@ export default function FacilityModal({ isOpen, facility, onClose, onSave, isSav
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Booking Capacity</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Bookings per Day</label>
               <input
                 type="number"
                 name="capacity"
